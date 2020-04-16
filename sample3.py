@@ -16,14 +16,14 @@ class TableModel(QAbstractTableModel):
     def __init__(self, table):
         super(TableModel, self).__init__()
         self.table = table
+        self.client = MysqlClient()
         self.load_data(self.table)
 
     def load_data(self, table):
-        self.client = MysqlClient()
         self.adatok = self.client.get_all(table)
         self._data = self.adatok[0]
         self.fejlec = self.adatok[1]
-        print("load_data-ban:", self.fejlec)
+
     def headerData(self, section, orientation, role):
         if role == Qt.DisplayRole:
             if orientation == Qt.Horizontal:
@@ -99,10 +99,10 @@ class TableModel(QAbstractTableModel):
     def columnCount(self, index):
         return len(self._data[0])
 
-    def rekord_torles(self, unique_id):
-        self.unique_id = unique_id
+    def rekord_torles(self, unique_value):
+        self.unique_value = unique_value
         # print(f"Aktiális rekord törlése az adatbázisból. Azonosító: {unique_id}")
-        self.client.delete_rekord(self.table, self.unique_id)
+        self.client.delete_rekord(self.table, self.unique_value)
 
 
 class MainWindow(QMainWindow):
@@ -118,7 +118,7 @@ class MainWindow(QMainWindow):
         self.client = MysqlClient()
         self.table = QTableView()
         # todo: a megjelenített tábla neve
-        self.table_name = "teszt"
+        self.table_name = "teszt2"
 
         main_layout.addWidget(self.table)
         self.model = TableModel(self.table_name)
@@ -127,10 +127,21 @@ class MainWindow(QMainWindow):
         self.table.setSortingEnabled(True)
         self.table.setEditTriggers(QAbstractItemView.DoubleClicked)
 
-        self.delete_button = QPushButton("Delete record")
-        main_layout.addWidget(self.delete_button)
+        gomb_layout = QHBoxLayout()
+        main_layout.addLayout(gomb_layout)
+
+        self.delete_button = QPushButton("Delete Record")
+        gomb_layout.addWidget(self.delete_button)
+
+        self.add_button = QPushButton("Add New Record")
+        gomb_layout.addWidget(self.add_button)
+
+        self.modify_button = QPushButton("Modify Record")
+        gomb_layout.addWidget(self.modify_button)
 
         self.delete_button.pressed.connect(self.delete)
+        self.add_button.pressed.connect(self.add)
+        self.modify_button.pressed.connect(self.modify)
 
     def delete(self):
         index = self.table.selectedIndexes()[0]
@@ -142,12 +153,17 @@ class MainWindow(QMainWindow):
                 self.id_name = row[0]
                 for i in range(0, len(self.model.fejlec)):
                     if self.id_name == self.model.fejlec[i]:
-                        torlendo_id = self.model._data[index.row()][i]
+                        torlendo_ertek = self.model._data[index.row()][i]
 
         del self.model._data[index.row()]
         self.model.layoutChanged.emit()
-        self.model.rekord_torles(torlendo_id)
+        self.model.rekord_torles(torlendo_ertek)
 
+    def add(self):
+        pass
+
+    def modify(self):
+        pass
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

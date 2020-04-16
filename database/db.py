@@ -38,20 +38,25 @@ class MysqlClient(QObject):
 
         return None
 
-    def delete_rekord(self, table, id):
-        """ Az átadott rekord_id-ú rekord törlése a table táblából"""
+    def delete_rekord(self, table, value):
+        """ Az átadott rekord_id-ú rekord törlése a table táblából. A táblából meg kell
+            határozni az elsődleges kulcsot (egyedi azonosító) és annak típusától függően
+            (int vagy str) kell az sql parancsot paraméterezni.  Amikor a view meghívja ezt a metódust,
+            akkor átadja az elsődleges kulcsnak megfelelő mező értékét. Ennek vizsgálatával (type() )
+            dönthető el, hogy az sql-ben int-ként vagy str-ként kell kezelni."""
         self.table = table
+        # A tábla elsődleges kulcsának meghatározása
         self.cursor.execute(f"describe {table}")
         all_rows2 = self.cursor.fetchall()
         for row in all_rows2:
             if 'PRI' in row:
                 self.id_name =  row[0]
-        self.rekord_id = id
-
-        if type(self.rekord_id) == 'int':
-            self.cursor.execute(f"DELETE FROM {self.table} WHERE {self.id_name}={self.rekord_id}")
+        self.value = value
+        # Az elsődleges kulcs típusától függően (int vagy str) a törlés végrahajtása
+        if type(self.value) == 'int':
+            self.cursor.execute(f"DELETE FROM {self.table} WHERE {self.id_name}={self.value}")
         else:
-            self.cursor.execute(f"DELETE FROM {self.table} WHERE {self.id_name}='{self.rekord_id}'")
+            self.cursor.execute(f"DELETE FROM {self.table} WHERE {self.id_name}='{self.value}'")
         self.db.commit()
 
     def exist_table(self, table):

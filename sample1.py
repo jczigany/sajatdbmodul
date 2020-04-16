@@ -11,11 +11,17 @@ class TableModel(QAbstractTableModel):
     def __init__(self, matrix):
         super(TableModel, self).__init__()
 
+    def data(self, index, role):
+
+        value = matrix[index.row()][index.column()]
+
+        return value
+
     def rowCount(self, parent):
-        return 2
+        return len(matrix)
 
     def columnCount(self, parent):
-        return 3
+        return len(matrix[0])
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
@@ -30,6 +36,6 @@ if __name__ == '__main__':
     # view.setModel(model)
     # view.show()
     view2 = QTableView()
-    view2.setModel(model)
+    view2.setModel(model2)
     view2.show()
     app.exec_()
