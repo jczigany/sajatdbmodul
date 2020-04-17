@@ -3,6 +3,7 @@ from database.db import MysqlClient
 from PySide2.QtGui import QColor, QIcon
 from PySide2.QtWidgets import QMainWindow, QTableView, QWidget, QApplication, QVBoxLayout, QHBoxLayout, QPushButton, QAbstractItemView
 from PySide2.QtCore import QAbstractTableModel, Qt
+from operator import itemgetter
 
 import sys
 
@@ -23,6 +24,14 @@ class TableModel(QAbstractTableModel):
         self.adatok = self.client.get_all(table)
         self._data = self.adatok[0]
         self.fejlec = self.adatok[1]
+
+    def sort(self, column, order):
+        self.layoutAboutToBeChanged.emit()
+        if order == Qt.SortOrder.AscendingOrder:
+            self._data = sorted(self._data, key=itemgetter(column), reverse=False)
+        else:
+            self._data = sorted(self._data, key=itemgetter(column), reverse=True)
+        self.layoutChanged.emit()
 
     def headerData(self, section, orientation, role):
         if role == Qt.DisplayRole:
@@ -101,7 +110,6 @@ class TableModel(QAbstractTableModel):
 
     def rekord_torles(self, unique_value):
         self.unique_value = unique_value
-        # print(f"Aktiális rekord törlése az adatbázisból. Azonosító: {unique_id}")
         self.client.delete_rekord(self.table, self.unique_value)
 
 
