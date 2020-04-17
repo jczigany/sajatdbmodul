@@ -20,6 +20,15 @@ class TableModel(QAbstractTableModel):
         self.client = MysqlClient()
         self.load_data(self.table)
 
+    def flags(self, index):
+        flags = super(self.__class__, self).flags(index)
+        flags |= Qt.ItemIsEditable
+        flags |= Qt.ItemIsSelectable
+        flags |= Qt.ItemIsEnabled
+        # flags |= Qt.ItemIsDragEnabled
+        # flags |= Qt.ItemIsDropEnabled
+        return flags
+
     def load_data(self, table):
         self.adatok = self.client.get_all(table)
         self._data = self.adatok[0]
@@ -108,6 +117,21 @@ class TableModel(QAbstractTableModel):
     def columnCount(self, index):
         return len(self._data[0])
 
+    def delete(self, sor):
+        index = sor
+        self.client.cursor.execute(f"describe {self.table}")
+        all_rows2 = self.client.cursor.fetchall()
+        for row in all_rows2:
+            if 'PRI' in row:
+                self.id_name = row[0]
+                for i in range(0, len(self.fejlec)):
+                    if self.id_name == self.fejlec[i]:
+                        torlendo_ertek = self._data[index.row()][i]
+
+        del self._data[index.row()]
+        self.layoutChanged.emit()
+        self.rekord_torles(torlendo_ertek)
+
     def rekord_torles(self, unique_value):
         self.unique_value = unique_value
         self.client.delete_rekord(self.table, self.unique_value)
@@ -147,25 +171,11 @@ class MainWindow(QMainWindow):
         self.modify_button = QPushButton("Modify Record")
         gomb_layout.addWidget(self.modify_button)
 
-        self.delete_button.pressed.connect(self.delete)
+        self.delete_button.pressed.connect(lambda: self.model.delete(self.table.selectedIndexes()[0]))
         self.add_button.pressed.connect(self.add)
         self.modify_button.pressed.connect(self.modify)
 
-    def delete(self):
-        index = self.table.selectedIndexes()[0]
 
-        self.client.cursor.execute(f"describe {self.table_name}")
-        all_rows2 = self.client.cursor.fetchall()
-        for row in all_rows2:
-            if 'PRI' in row:
-                self.id_name = row[0]
-                for i in range(0, len(self.model.fejlec)):
-                    if self.id_name == self.model.fejlec[i]:
-                        torlendo_ertek = self.model._data[index.row()][i]
-
-        del self.model._data[index.row()]
-        self.model.layoutChanged.emit()
-        self.model.rekord_torles(torlendo_ertek)
 
     def add(self):
         pass
