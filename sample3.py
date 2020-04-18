@@ -38,8 +38,9 @@ class TableModel(QAbstractTableModel):
         if role == Qt.EditRole:
             if index.isValid():
                 kivalasztva = index
+                # table.hideColumn(0) - val megoldva
                 # A +1 azért kell, mert a Primary-t nem jelenítjük meg (1 oszloppal csúsztatva van)
-                self._data[index.row()][index.column() + 1] = value
+                self._data[index.row()][index.column()] = value
                 self.client.update_table(self.table,self._data[kivalasztva.row()])
                 self.dataChanged.emit(index, index, (Qt.DisplayRole, ))
                 return True
@@ -54,11 +55,12 @@ class TableModel(QAbstractTableModel):
         self.layoutChanged.emit()
 
     def headerData(self, section, orientation, role):
-        """ A Primary kulcsként használt mezőt (id) nem jelenítjük meg, ezért van a második oszloptól [section +1]
-            Ha kell, akkor lehet 'nem editálhatóvá tenni' """
+        """ table.hideColumn(0) - val megoldva
+            (A Primary kulcsként használt mezőt (id) nem jelenítjük meg, ezért van a második oszloptól [section +1]
+            Ha kell, akkor lehet 'nem editálhatóvá tenni' )"""
         if role == Qt.DisplayRole:
             if orientation == Qt.Horizontal:
-                return str(self.fejlec[section + 1])
+                return str(self.fejlec[section])
 
     def data(self, index, role):
         """ index: melyik adatról van szó.
@@ -71,10 +73,11 @@ class TableModel(QAbstractTableModel):
                 TextAligmentRole
                 ForegrounfRole
 
-                A Primary kulcsként használt mezőt (id) nem jelenítjük meg, ezért van a második oszloptól [index.column()+1]
-                Ha kell, akkor lehet 'nem editálhatóvá tenni' """
-        COLORS = ['#053061', '#2166ac', '#4393c3', '#92c5de', '#d1e5f0', '#f7f7f7', '#fddbc7', '#f4a582', '#d6604d', '#b2182b', '#67001f']
-        value = self._data[index.row()][index.column() + 1]
+                table.hideColumn(0) - val megoldva
+                (A Primary kulcsként használt mezőt (id) nem jelenítjük meg, ezért van a második oszloptól [index.column()+1]
+                Ha kell, akkor lehet 'nem editálhatóvá tenni') """
+        # COLORS = ['#053061', '#2166ac', '#4393c3', '#92c5de', '#d1e5f0', '#f7f7f7', '#fddbc7', '#f4a582', '#d6604d', '#b2182b', '#67001f']
+        value = self._data[index.row()][index.column()]
         if role == Qt.DisplayRole:
             # if isinstance(value, datetime):
             #     return value.strftime("%Y-%m-%d")
@@ -135,9 +138,10 @@ class TableModel(QAbstractTableModel):
         return len(self._data)
 
     def columnCount(self, index):
-        """A Primary kulcsként használt mezőt(id) nem jelenítjük meg, ezért van a második oszloptól len(self.data[0])-1
-            Ha kell, akkor lehet 'nem editálhatóvá tenni' """
-    return len(self._data[0]) - 1
+        """ table.hideColumn(0) - val megoldva
+            (A Primary kulcsként használt mezőt(id) nem jelenítjük meg, ezért van a második oszloptól len(self.data[0])-1
+            Ha kell, akkor lehet 'nem editálhatóvá tenni' )"""
+        return len(self._data[0])
 
     def delete(self, sor):
         index = sor
@@ -145,14 +149,15 @@ class TableModel(QAbstractTableModel):
         all_rows2 = self.client.cursor.fetchall()
         for row in all_rows2:
             if 'PRI' in row:
-                self.id_name = row[0]
+                id_name = row[0]
                 for i in range(0, len(self.fejlec)):
-                    if self.id_name == self.fejlec[i]:
+                    if id_name == self.fejlec[i]:
                         torlendo_ertek = self._data[index.row()][i]
 
         del self._data[index.row()]
         self.layoutChanged.emit()
         self.rekord_torles(torlendo_ertek)
+        return
 
     def rekord_torles(self, unique_value):
         self.unique_value = unique_value
@@ -179,7 +184,10 @@ class MainWindow(QMainWindow):
 
         self.table.setModel(self.model)
         self.table.setSortingEnabled(True)
-        self.table.setEditTriggers(QAbstractItemView.DoubleClicked)
+        # Az első oszlop (id) elrejtése
+        self.table.hideColumn(0)
+        # Ha a következő sor kommentelve van, akkor billentyűre is edit-módba lép. Egyébként csak dupla-klikk-re
+        # self.table.setEditTriggers(QAbstractItemView.DoubleClicked)
 
         gomb_layout = QHBoxLayout()
         main_layout.addLayout(gomb_layout)
