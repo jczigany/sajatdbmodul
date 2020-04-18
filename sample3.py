@@ -34,6 +34,17 @@ class TableModel(QAbstractTableModel):
         self._data = self.adatok[0]
         self.fejlec = self.adatok[1]
 
+    def setData(self, index, value, role):
+        if role == Qt.EditRole:
+            if index.isValid():
+                kivalasztva = index
+                # A +1 azért kell, mert a Primary-t nem jelenítjük meg (1 oszloppal csúsztatva van)
+                self._data[index.row()][index.column() + 1] = value
+                self.client.update_table(self.table,self._data[kivalasztva.row()])
+                self.dataChanged.emit(index, index, (Qt.DisplayRole, ))
+                return True
+            return False
+
     def sort(self, column, order):
         self.layoutAboutToBeChanged.emit()
         if order == Qt.SortOrder.AscendingOrder:
@@ -43,9 +54,11 @@ class TableModel(QAbstractTableModel):
         self.layoutChanged.emit()
 
     def headerData(self, section, orientation, role):
+        """ A Primary kulcsként használt mezőt (id) nem jelenítjük meg, ezért van a második oszloptól [section +1]
+            Ha kell, akkor lehet 'nem editálhatóvá tenni' """
         if role == Qt.DisplayRole:
             if orientation == Qt.Horizontal:
-                return str(self.fejlec[section])
+                return str(self.fejlec[section + 1])
 
     def data(self, index, role):
         """ index: melyik adatról van szó.
@@ -56,9 +69,12 @@ class TableModel(QAbstractTableModel):
                 DecorationRole
                 FontRole
                 TextAligmentRole
-                ForegrounfRole"""
+                ForegrounfRole
+
+                A Primary kulcsként használt mezőt (id) nem jelenítjük meg, ezért van a második oszloptól [index.column()+1]
+                Ha kell, akkor lehet 'nem editálhatóvá tenni' """
         COLORS = ['#053061', '#2166ac', '#4393c3', '#92c5de', '#d1e5f0', '#f7f7f7', '#fddbc7', '#f4a582', '#d6604d', '#b2182b', '#67001f']
-        value = self._data[index.row()][index.column()]
+        value = self._data[index.row()][index.column() + 1]
         if role == Qt.DisplayRole:
             # if isinstance(value, datetime):
             #     return value.strftime("%Y-%m-%d")
@@ -68,6 +84,10 @@ class TableModel(QAbstractTableModel):
             #
             # if isinstance(value, str):
             #     return'"%s"' % value
+
+            return value
+
+        if role == Qt.EditRole:
 
             return value
 
@@ -115,7 +135,9 @@ class TableModel(QAbstractTableModel):
         return len(self._data)
 
     def columnCount(self, index):
-        return len(self._data[0])
+        """A Primary kulcsként használt mezőt(id) nem jelenítjük meg, ezért van a második oszloptól len(self.data[0])-1
+            Ha kell, akkor lehet 'nem editálhatóvá tenni' """
+    return len(self._data[0]) - 1
 
     def delete(self, sor):
         index = sor

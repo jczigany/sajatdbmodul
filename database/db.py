@@ -26,17 +26,38 @@ class MysqlClient(QObject):
             ha a tábla nem üres: tuple-k listája
             ha a tábla üres: üres lista []
             Ha a tábla nem létezik: None
+            A mezőneveket is lekérdezzük, és hozzáfűzzük a 'data' -hoz
             """
         self.table = table
         self.data = []
         if self.exist_table(self.table):
             self.cursor.execute(f"SELECT * FROM {self.table}")
             field_names = [i[0] for i in self.cursor.description]
-            self.data.append(self.cursor.fetchall())
+            adatok = [list(row) for row in self.cursor.fetchall()]
+            self.data.append(adatok)
             self.data.append(field_names)
+            # print(self.data[0])
             return self.data
 
         return None
+
+    def update_table(self, table, rekord:list):
+        sql = f"UPDATE {table} SET "
+        self.cursor.execute(f"describe {table}")
+        all_rows2 = self.cursor.fetchall()
+
+        for i in range(1, len(all_rows2)):
+            sql += f"{all_rows2[i][0]}="
+            if "int" in all_rows2[i][1]:
+                sql += f"{rekord[i]}, "
+            if "varchar" in all_rows2[i][1]:
+                sql += f"'{rekord[i]}', "
+        sql += f"{all_rows2[0][0]}={rekord[0]}"
+        sql += f" WHERE {all_rows2[0][0]}={rekord[0]}"
+
+        self.cursor.execute(sql)
+        self.db.commit()
+        return
 
     def delete_rekord(self, table, value):
         """ Az átadott rekord_id-ú rekord törlése a table táblából. A táblából meg kell
