@@ -176,7 +176,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(widget)
         self.client = MysqlClient()
         self.table = QTableView()
-        # todo: a megjelenített tábla neve
+        # a megjelenített tábla neve
         self.table_name = "teszt2"
 
         main_layout.addWidget(self.table)
