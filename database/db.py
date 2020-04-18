@@ -96,7 +96,6 @@ class MysqlClient(QObject):
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     client = MysqlClient()
-    # print(client.exist_table("teszt3"))
     print(client.get_all("teszt2")[0])
     client.close()
     app.exec_()
