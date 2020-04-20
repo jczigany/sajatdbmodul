@@ -1,12 +1,61 @@
 from datetime import datetime
 from database.db import MysqlClient
 from PySide2.QtGui import QColor, QIcon
-from PySide2.QtWidgets import QMainWindow, QTableView, QWidget, QApplication, QVBoxLayout, QHBoxLayout, QPushButton, QAbstractItemView
-from PySide2.QtCore import QAbstractTableModel, Qt
+from PySide2.QtWidgets import QMainWindow, QTableView, QWidget, QApplication, QVBoxLayout, QHBoxLayout, QPushButton, \
+    QAbstractItemView, QFormLayout, QDialog, QLineEdit, QDialogButtonBox
+from PySide2.QtCore import QAbstractTableModel, Qt, QRect, QModelIndex
 from operator import itemgetter
 
 import sys
 
+client = MysqlClient()
+
+class MyFormDialog(QDialog):
+    def __init__(self, table):
+        super(MyFormDialog, self).__init__()
+        self.table = table
+        # print("Tábla neve:", table)
+        self.mezo_nevek = []
+        self.mezo_tipusok = []
+        self.mezo_ertekek = []
+        client.cursor.execute(f"describe {self.table}")
+        all_rows2 = client.cursor.fetchall()
+        for row in all_rows2:
+            if 'PRI' not in row:
+                self.mezo_nevek.append(row[0])
+                self.mezo_tipusok.append(row[1])
+        print("Mezőnevek:", self.mezo_nevek)
+        print("Mező típusok:", self.mezo_tipusok)
+        self.layout = QFormLayout()
+        self.setLayout(self.layout)
+        for i in range(len(self.mezo_nevek)):
+            self.mezo = QLineEdit()
+            self.mezo_ertekek.append(self.mezo)
+            self.layout.addRow(f"{self.mezo_nevek[i]}", self.mezo_ertekek[i])
+
+        buttonbox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttonbox.accepted.connect(self.accept)
+        buttonbox.rejected.connect(self.reject)
+        self.layout.addWidget(buttonbox)
+
+    def accept(self):
+        mezo_rekord = [0]
+
+        for i in range(len(self.mezo_ertekek)):
+            mezo_rekord.append(self.mezo_ertekek[i].text())
+
+        insert_id = client.insert_rekord(self.table, mezo_rekord)
+        temp_data = client.get_one_rekord(self.table, insert_id)
+        mezo_rekord[0] = insert_id
+
+        win.model.layoutAboutToBeChanged.emit()
+        win.model._data.append(temp_data)
+        win.model.layoutChanged.emit()
+        self.deleteLater()
+
+    def reject(self):
+        print("Reject")
+        self.deleteLater()
 
 class TableModel(QAbstractTableModel):
     """ Az AbstractModel közvetlenül nem példányosítható. Elöször saját class-t származtatunk, majd ezt tudjuk példányosítani.
@@ -201,14 +250,17 @@ class MainWindow(QMainWindow):
         self.modify_button = QPushButton("Modify Record")
         gomb_layout.addWidget(self.modify_button)
 
-        self.delete_button.pressed.connect(lambda: self.model.delete(self.table.selectedIndexes()[0]))
-        self.add_button.pressed.connect(self.add)
-        self.modify_button.pressed.connect(self.modify)
+        self.delete_button.clicked.connect(lambda: self.model.delete(self.table.selectedIndexes()[0]))
+        self.add_button.clicked.connect(self.add)
+        self.modify_button.clicked.connect(self.modify)
 
 
 
     def add(self):
-        pass
+        print("Pop-Up ablak a from-nak")
+        self.form_window = MyFormDialog(self.table_name)
+        self.form_window.setGeometry(QRect(100, 100, 400, 200))
+        self.form_window.show()
 
     def modify(self):
         pass

@@ -41,6 +41,25 @@ class MysqlClient(QObject):
 
         return None
 
+    def get_one_rekord(self, table, id):
+        self.table = table
+        adatok = []
+        if self.exist_table(self.table):
+
+            self.cursor.execute(f"SELECT * FROM {self.table} WHERE id={id}")
+            # field_names = [i[0] for i in self.cursor.description]
+            temp_adatok = [self.cursor.fetchone()]
+            print("temp_adatok:", temp_adatok)
+            for i in range(len(temp_adatok[0])):
+                adatok.append(temp_adatok[0][i])
+            print("adatok", adatok)
+            # self.data.append(adatok)
+            # self.data.append(field_names)
+            # print(self.data[0])
+            return adatok
+
+        return None
+
     def update_table(self, table, rekord:list):
         sql = f"UPDATE {table} SET "
         self.cursor.execute(f"describe {table}")
@@ -58,6 +77,33 @@ class MysqlClient(QObject):
         self.cursor.execute(sql)
         self.db.commit()
         return
+
+    def insert_rekord(self, table, rekord:list):
+        sql = f"INSERT INTO {table} ("
+        self.cursor.execute(f"describe {table}")
+        all_rows2 = self.cursor.fetchall()
+
+        for i in range(1, len(all_rows2) - 1):
+            sql += f"{all_rows2[i][0]}, "
+        sql += f"{all_rows2[len(all_rows2) - 1][0]}) VALUES ("
+        for i in range(1, len(all_rows2) - 1):
+            if "int" in all_rows2[i][1]:
+                sql += f"{rekord[i]}, "
+            if "varchar" in all_rows2[i][1]:
+                sql += f"'{rekord[i]}', "
+        if "int" in all_rows2[len(all_rows2) - 1][1]:
+            sql += f"{rekord[len(all_rows2) - 1]} "
+        if "varchar" in all_rows2[len(all_rows2) - 1][1]:
+            sql += f"'{rekord[len(all_rows2) - 1]}' "
+        sql += ")"
+
+        self.cursor.execute(sql)
+        self.cursor.execute("SELECT LAST_INSERT_ID()")
+        insert_id = self.cursor.fetchall()
+        self.db.commit()
+
+        return insert_id[0][0]
+
 
     def delete_rekord(self, table, value):
         """ Az átadott rekord_id-ú rekord törlése a table táblából. A táblából meg kell
