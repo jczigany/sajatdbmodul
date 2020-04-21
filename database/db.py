@@ -20,6 +20,11 @@ class MysqlClient(QObject):
     def close(self):
         self.db.close()
 
+    def get_mezonevek(self, table):
+        self.cursor.execute(f"describe {table}")
+        minden_sor = self.cursor.fetchall()
+        return minden_sor
+
     def get_all(self, table):
         """ Tábla tartalmának lekérése ( select * from table)
             Visszaadott érték:
@@ -28,43 +33,31 @@ class MysqlClient(QObject):
             Ha a tábla nem létezik: None
             A mezőneveket is lekérdezzük, és hozzáfűzzük a 'data' -hoz
             """
-        self.table = table
-        self.data = []
-        if self.exist_table(self.table):
-            self.cursor.execute(f"SELECT * FROM {self.table}")
+        data = []
+        if self.exist_table(table):
+            self.cursor.execute(f"SELECT * FROM {table}")
             field_names = [i[0] for i in self.cursor.description]
             adatok = [list(row) for row in self.cursor.fetchall()]
-            self.data.append(adatok)
-            self.data.append(field_names)
-            # print(self.data[0])
-            return self.data
+            data.append(adatok)
+            data.append(field_names)
+            return data
 
         return None
 
-    def get_one_rekord(self, table, id):
-        self.table = table
+    def get_one_rekord(self, table, get_id):
         adatok = []
-        if self.exist_table(self.table):
-
-            self.cursor.execute(f"SELECT * FROM {self.table} WHERE id={id}")
-            # field_names = [i[0] for i in self.cursor.description]
+        if self.exist_table(table):
+            self.cursor.execute(f"SELECT * FROM {table} WHERE id={get_id}")
             temp_adatok = [self.cursor.fetchone()]
-            print("temp_adatok:", temp_adatok)
             for i in range(len(temp_adatok[0])):
                 adatok.append(temp_adatok[0][i])
-            print("adatok", adatok)
-            # self.data.append(adatok)
-            # self.data.append(field_names)
-            # print(self.data[0])
             return adatok
 
         return None
 
-    def update_table(self, table, rekord:list):
+    def update_table(self, table, rekord: list):
         sql = f"UPDATE {table} SET "
-        self.cursor.execute(f"describe {table}")
-        all_rows2 = self.cursor.fetchall()
-
+        all_rows2 = self.get_mezonevek(table)
         for i in range(1, len(all_rows2)):
             sql += f"{all_rows2[i][0]}="
             if "int" in all_rows2[i][1]:
@@ -78,11 +71,9 @@ class MysqlClient(QObject):
         self.db.commit()
         return
 
-    def insert_rekord(self, table, rekord:list):
+    def insert_rekord(self, table, rekord: list):
         sql = f"INSERT INTO {table} ("
-        self.cursor.execute(f"describe {table}")
-        all_rows2 = self.cursor.fetchall()
-
+        all_rows2 = self.get_mezonevek(table)
         for i in range(1, len(all_rows2) - 1):
             sql += f"{all_rows2[i][0]}, "
         sql += f"{all_rows2[len(all_rows2) - 1][0]}) VALUES ("
@@ -104,26 +95,22 @@ class MysqlClient(QObject):
 
         return insert_id[0][0]
 
-
     def delete_rekord(self, table, value):
         """ Az átadott rekord_id-ú rekord törlése a table táblából. A táblából meg kell
             határozni az elsődleges kulcsot (egyedi azonosító) és annak típusától függően
             (int vagy str) kell az sql parancsot paraméterezni.  Amikor a view meghívja ezt a metódust,
             akkor átadja az elsődleges kulcsnak megfelelő mező értékét. Ennek vizsgálatával (type() )
             dönthető el, hogy az sql-ben int-ként vagy str-ként kell kezelni."""
-        self.table = table
         # A tábla elsődleges kulcsának meghatározása
-        self.cursor.execute(f"describe {table}")
-        all_rows2 = self.cursor.fetchall()
+        all_rows2 = self.get_mezonevek(table)
         for row in all_rows2:
             if 'PRI' in row:
-                self.id_name =  row[0]
-        self.value = value
+                id_name = row[0]
         # Az elsődleges kulcs típusától függően (int vagy str) a törlés végrahajtása
-        if type(self.value) == 'int':
-            self.cursor.execute(f"DELETE FROM {self.table} WHERE {self.id_name}={self.value}")
+        if type(value) == 'int':
+            self.cursor.execute(f"DELETE FROM {table} WHERE {id_name}={value}")
         else:
-            self.cursor.execute(f"DELETE FROM {self.table} WHERE {self.id_name}='{self.value}'")
+            self.cursor.execute(f"DELETE FROM {table} WHERE {id_name}='{value}'")
         self.db.commit()
 
     def exist_table(self, table):
@@ -136,12 +123,9 @@ class MysqlClient(QObject):
         QMessageBox.about(None, 'Adatok lekérése', 'A megadott tábla nem létezik')
         sys.exit(1)
 
-        # return False
-
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     client = MysqlClient()
-    print(client.get_all("teszt2")[0])
     client.close()
     app.exec_()

@@ -1,37 +1,33 @@
 from datetime import datetime
 from database.db import MysqlClient
-from PySide2.QtGui import QColor, QIcon
+# from PySide2.QtGui import QColor, QIcon
 from PySide2.QtWidgets import QMainWindow, QTableView, QWidget, QApplication, QVBoxLayout, QHBoxLayout, QPushButton, \
-    QAbstractItemView, QFormLayout, QDialog, QLineEdit, QDialogButtonBox
-from PySide2.QtCore import QAbstractTableModel, Qt, QRect, QModelIndex
+    QFormLayout, QDialog, QLineEdit, QDialogButtonBox
+from PySide2.QtCore import QAbstractTableModel, Qt, QRect
 from operator import itemgetter
 
 import sys
 
 client = MysqlClient()
 
+
 class MyFormDialog(QDialog):
-    def __init__(self, table):
-        super(MyFormDialog, self).__init__()
+    def __init__(self, parent, table):
+        super(MyFormDialog, self).__init__(parent=parent)
         self.table = table
-        # print("Tábla neve:", table)
-        self.mezo_nevek = []
-        self.mezo_tipusok = []
+        print(self.parent().model._data)
+        mezo_nevek = []
         self.mezo_ertekek = []
-        client.cursor.execute(f"describe {self.table}")
-        all_rows2 = client.cursor.fetchall()
+        all_rows2 = client.get_mezonevek(self.table)
         for row in all_rows2:
             if 'PRI' not in row:
-                self.mezo_nevek.append(row[0])
-                self.mezo_tipusok.append(row[1])
-        print("Mezőnevek:", self.mezo_nevek)
-        print("Mező típusok:", self.mezo_tipusok)
+                mezo_nevek.append(row[0])
         self.layout = QFormLayout()
         self.setLayout(self.layout)
-        for i in range(len(self.mezo_nevek)):
-            self.mezo = QLineEdit()
-            self.mezo_ertekek.append(self.mezo)
-            self.layout.addRow(f"{self.mezo_nevek[i]}", self.mezo_ertekek[i])
+        for i in range(len(mezo_nevek)):
+            mezo = QLineEdit()
+            self.mezo_ertekek.append(mezo)
+            self.layout.addRow(f"{mezo_nevek[i]}", self.mezo_ertekek[i])
 
         buttonbox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttonbox.accepted.connect(self.accept)
@@ -48,17 +44,21 @@ class MyFormDialog(QDialog):
         temp_data = client.get_one_rekord(self.table, insert_id)
         mezo_rekord[0] = insert_id
 
-        win.model.layoutAboutToBeChanged.emit()
-        win.model._data.append(temp_data)
-        win.model.layoutChanged.emit()
+        self.parent().model.layoutAboutToBeChanged.emit()
+        self.parent().model._data.append(temp_data)
+        self.parent().model.layoutChanged.emit()
+        # win.model.layoutAboutToBeChanged.emit()
+        # win.model._data.append(temp_data)
+        # win.model.layoutChanged.emit()
         self.deleteLater()
 
     def reject(self):
-        print("Reject")
         self.deleteLater()
 
+
 class TableModel(QAbstractTableModel):
-    """ Az AbstractModel közvetlenül nem példányosítható. Elöször saját class-t származtatunk, majd ezt tudjuk példányosítani.
+    """ Az AbstractModel közvetlenül nem példányosítható. Elöször saját class-t származtatunk,
+    majd ezt tudjuk példányosítani.
     Ennél a view típusnál minimum 3 metódust kell újradefiniálni:
     data: Honnan, és hogyan veszi az adatokat
     rowCount: Hány sora lesz a táblázatnak (az adatok alapján)
@@ -194,8 +194,7 @@ class TableModel(QAbstractTableModel):
 
     def delete(self, sor):
         index = sor
-        self.client.cursor.execute(f"describe {self.table}")
-        all_rows2 = self.client.cursor.fetchall()
+        all_rows2 = self.client.get_mezonevek(self.table)
         for row in all_rows2:
             if 'PRI' in row:
                 id_name = row[0]
@@ -211,6 +210,11 @@ class TableModel(QAbstractTableModel):
     def rekord_torles(self, unique_value):
         self.unique_value = unique_value
         self.client.delete_rekord(self.table, self.unique_value)
+
+    def add(self):
+        self.form_window = MyFormDialog(self.table)
+        self.form_window.setGeometry(QRect(100, 100, 400, 200))
+        self.form_window.show()
 
 
 class MainWindow(QMainWindow):
@@ -254,16 +258,14 @@ class MainWindow(QMainWindow):
         self.add_button.clicked.connect(self.add)
         self.modify_button.clicked.connect(self.modify)
 
-
+    def modify(self):
+        pass
 
     def add(self):
-        print("Pop-Up ablak a from-nak")
-        self.form_window = MyFormDialog(self.table_name)
+        self.form_window = MyFormDialog(self, self.table_name)
         self.form_window.setGeometry(QRect(100, 100, 400, 200))
         self.form_window.show()
 
-    def modify(self):
-        pass
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
