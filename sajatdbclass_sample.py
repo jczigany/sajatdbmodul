@@ -4,6 +4,9 @@ from database.db import MysqlClient
 from PySide2.QtWidgets import QMainWindow, QTableView, QWidget, QApplication, QVBoxLayout, QHBoxLayout, QPushButton, \
     QFormLayout, QDialog, QLineEdit, QDialogButtonBox
 from PySide2.QtCore import QAbstractTableModel, Qt, QRect
+from PySide2.QtCore import *
+
+
 from operator import itemgetter
 
 import sys
@@ -12,10 +15,14 @@ client = MysqlClient()
 
 
 class MyFormDialog(QDialog):
-    def __init__(self, parent, table):
-        super(MyFormDialog, self).__init__(parent=parent)
+    """ A fogadott paraméter (table) alapján állítjuk össze a form-ot.
+        Lekérdezzük a tábla struktúrát és összerakjuk a mezőnevek listáját,
+        kihagyva a Primary mező-nevet. Ezek lesznek a LABEl-ek. A mező értékeket
+        szintén egy LIST-ben tárojuk a későbbi feldolgozás lehetővé tétele érdekében"""
+
+    def __init__(self, table):
+        super(MyFormDialog, self).__init__()
         self.table = table
-        print(self.parent().model._data)
         mezo_nevek = []
         self.mezo_ertekek = []
         all_rows2 = client.get_mezonevek(self.table)
@@ -34,27 +41,6 @@ class MyFormDialog(QDialog):
         buttonbox.rejected.connect(self.reject)
         self.layout.addWidget(buttonbox)
 
-    def accept(self):
-        mezo_rekord = [0]
-
-        for i in range(len(self.mezo_ertekek)):
-            mezo_rekord.append(self.mezo_ertekek[i].text())
-
-        insert_id = client.insert_rekord(self.table, mezo_rekord)
-        temp_data = client.get_one_rekord(self.table, insert_id)
-        mezo_rekord[0] = insert_id
-
-        self.parent().model.layoutAboutToBeChanged.emit()
-        self.parent().model._data.append(temp_data)
-        self.parent().model.layoutChanged.emit()
-        # win.model.layoutAboutToBeChanged.emit()
-        # win.model._data.append(temp_data)
-        # win.model.layoutChanged.emit()
-        self.deleteLater()
-
-    def reject(self):
-        self.deleteLater()
-
 
 class TableModel(QAbstractTableModel):
     """ Az AbstractModel közvetlenül nem példányosítható. Elöször saját class-t származtatunk,
@@ -63,6 +49,7 @@ class TableModel(QAbstractTableModel):
     data: Honnan, és hogyan veszi az adatokat
     rowCount: Hány sora lesz a táblázatnak (az adatok alapján)
     columnCount: Hány oszlopa lesz a táblázatnak (az adatok alapján)"""
+
     def __init__(self, table):
         super(TableModel, self).__init__()
         self.table = table
@@ -201,20 +188,28 @@ class TableModel(QAbstractTableModel):
                 for i in range(0, len(self.fejlec)):
                     if id_name == self.fejlec[i]:
                         torlendo_ertek = self._data[index.row()][i]
-
+        # rekord törlése a model-ből és a db-ből
         del self._data[index.row()]
         self.layoutChanged.emit()
-        self.rekord_torles(torlendo_ertek)
-        return
+        self.client.delete_rekord(self.table, torlendo_ertek)
 
-    def rekord_torles(self, unique_value):
-        self.unique_value = unique_value
-        self.client.delete_rekord(self.table, self.unique_value)
+        return
 
     def add(self):
         self.form_window = MyFormDialog(self.table)
-        self.form_window.setGeometry(QRect(100, 100, 400, 200))
-        self.form_window.show()
+        # self.form_window.setGeometry(QRect(100, 100, 400, 200))
+        if self.form_window.exec_():
+            mezo_rekord = [0]
+
+            for i in range(len(self.form_window.mezo_ertekek)):
+                mezo_rekord.append(self.form_window.mezo_ertekek[i].text())
+
+            insert_id = client.insert_rekord(self.table, mezo_rekord)
+            temp_data = client.get_one_rekord(self.table, insert_id)
+
+            self.layoutAboutToBeChanged.emit()
+            self._data.append(temp_data)
+            self.layoutChanged.emit()
 
 
 class MainWindow(QMainWindow):
@@ -228,17 +223,17 @@ class MainWindow(QMainWindow):
         widget.setLayout(main_layout)
         self.setCentralWidget(widget)
         self.client = MysqlClient()
-        self.table = QTableView()
+        self.table_view = QTableView()
         # a megjelenített tábla neve
         self.table_name = "teszt2"
 
-        main_layout.addWidget(self.table)
+        main_layout.addWidget(self.table_view)
         self.model = TableModel(self.table_name)
 
-        self.table.setModel(self.model)
-        self.table.setSortingEnabled(True)
+        self.table_view.setModel(self.model)
+        self.table_view.setSortingEnabled(True)
         # Az első oszlop (id) elrejtése
-        self.table.hideColumn(0)
+        self.table_view.hideColumn(0)
         # Ha a következő sor kommentelve van, akkor billentyűre is edit-módba lép. Egyébként csak dupla-klikk-re
         # self.table.setEditTriggers(QAbstractItemView.DoubleClicked)
 
@@ -246,25 +241,19 @@ class MainWindow(QMainWindow):
         main_layout.addLayout(gomb_layout)
 
         self.delete_button = QPushButton("Delete Record")
-        gomb_layout.addWidget(self.delete_button)
-
         self.add_button = QPushButton("Add New Record")
-        gomb_layout.addWidget(self.add_button)
-
         self.modify_button = QPushButton("Modify Record")
+
+        gomb_layout.addWidget(self.delete_button)
+        gomb_layout.addWidget(self.add_button)
         gomb_layout.addWidget(self.modify_button)
 
-        self.delete_button.clicked.connect(lambda: self.model.delete(self.table.selectedIndexes()[0]))
-        self.add_button.clicked.connect(self.add)
+        self.delete_button.clicked.connect(lambda: self.model.delete(self.table_view.selectedIndexes()[0]))
+        self.add_button.clicked.connect(self.model.add)
         self.modify_button.clicked.connect(self.modify)
 
     def modify(self):
         pass
-
-    def add(self):
-        self.form_window = MyFormDialog(self, self.table_name)
-        self.form_window.setGeometry(QRect(100, 100, 400, 200))
-        self.form_window.show()
 
 
 if __name__ == '__main__':
@@ -272,3 +261,4 @@ if __name__ == '__main__':
     win = MainWindow()
     win.show()
     app.exec_()
+    # print('\n'.join(repr(w) for w in app.allWidgets()))

@@ -124,8 +124,11 @@ class MysqlClient(QObject):
         sys.exit(1)
 
 
+# if __name__ == '__main__':
+#     app = QApplication(sys.argv)
+#     client = MysqlClient()
+#     client.close()
+#     app.exec_()
 if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    client = MysqlClient()
-    client.close()
-    app.exec_()
+    import doctest
+    doctest.testmod()
